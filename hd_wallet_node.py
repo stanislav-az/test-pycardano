@@ -1,6 +1,7 @@
 from pycardano import (
     HDWallet,
     PaymentVerificationKey,
+    VerificationKey,
     Address,
     ExtendedSigningKey,
     Network,
@@ -13,13 +14,24 @@ network = Network.TESTNET
 
 hd_wallet = HDWallet.from_mnemonic(MNEMONIC_24)
 
-hd_wallet_spend = hd_wallet.derive_from_path("m/1852'/1815'/0'/0/0")
-spend_public_key = hd_wallet_spend.public_key
-spend_vk = PaymentVerificationKey.from_primitive(spend_public_key)
-node_pub_key_hash = spend_vk.hash()
+# Generate node keys (for signing oracle feed)
+# using purpose 4343 (m / purpose' / coin_type' / account' / role / index)
+node_hdwallet = hd_wallet.derive_from_path("m/4343'/1815'/0'/0/0")
+node_feed_sk = ExtendedSigningKey.from_hdwallet(node_hdwallet)
+node_feed_vk: VerificationKey = VerificationKey.from_primitive(
+    node_hdwallet.public_key[:32]
+)
+print(f"node feed vk cbor hex: {node_feed_vk.to_cbor_hex()}")
+node_feed_vkh = node_feed_vk.hash()
+print(f"node feed vkh: {node_feed_vkh.payload.hex()}")
 
-extended_signing_key = ExtendedSigningKey.from_hdwallet(hd_wallet_spend)
-node_addr = Address(node_pub_key_hash, network=network)
-
+# Generate payment keys (for funds management)
+payment_hdwallet = hd_wallet.derive_from_path("m/1852'/1815'/0'/0/0")
+node_payment_sk = ExtendedSigningKey.from_hdwallet(payment_hdwallet)
+node_payment_vk = PaymentVerificationKey.from_primitive(
+    payment_hdwallet.public_key[:32]
+)
+node_payment_vkh = node_payment_vk.hash()
+print(f"node payment vkh: {node_payment_vkh.payload.hex()}")
+node_addr = Address(node_payment_vkh, network=network)
 print(node_addr)
-print(node_pub_key_hash)
